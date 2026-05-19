@@ -139,10 +139,7 @@
             border: 1px solid rgba(255,120,180,0.2);
             pointer-events: none;
         }
-    </style><!-- 背景音乐 -->
-<audio id="bgm" loop>
-    <source src="蔡徐坤-情人.mp3" type="audio/mpeg">
-</audio>
+    </style>
 </head>
 <body>
 
@@ -202,18 +199,7 @@
 
     // ===========================
     // 1. 画布背景（数字雨 + 爱心）
-    // ===========================// ===== 自动播放音乐 =====
-const audio = document.getElementById('bgm');
-audio.volume = 0.4;
-
-// 尝试自动播放
-audio.play().catch(() => {
-    // 如果被拦截，用户点击页面时播放
-    document.addEventListener('click', function playOnce() {
-        audio.play().catch(() => {});
-        document.removeEventListener('click', playOnce);
-    });
-});
+    // ===========================//
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const WIDTH = 1200;
