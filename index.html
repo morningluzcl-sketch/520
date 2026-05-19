@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Z姓大师倾力打造之520Heart</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body {
+            overflow: hidden;
+            background: #05050f;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+        canvas { display: block; }
+
+        /* ===== 弹窗通用 ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: linear-gradient(145deg, #1a0a12, #2d1322);
+            padding: 30px 30px 35px;
+            border-radius: 28px;
+            border: 1px solid rgba(255,120,180,0.3);
+            box-shadow: 0 25px 60px rgba(255,70,150,0.25);
+            text-align: center;
+            width: 90%;
+            max-width: 520px;
+            animation: scaleUp 0.35s ease;
+        }
+        .modal-box img {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255,120,180,0.15);
+        }
+        .modal-box .message {
+            color: #ffb6c1;
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .modal-box .sub-message {
+            color: #ffb6c1;
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+        .modal-box .btn {
+            background: transparent;
+            border: 1px solid rgba(255,120,180,0.3);
+            color: #ffb6c1;
+            padding: 8px 28px;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin: 4px;
+        }
+        .modal-box .btn:hover {
+            background: rgba(255,120,180,0.15);
+        }
+
+        @keyframes scaleUp {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* ===== 转盘样式 ===== */
+        .wheel-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            margin: 0 auto 20px;
+        }
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 40px rgba(255,70,150,0.3);
+        }
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px;
+            color: #ffb6c1;
+            text-shadow: 0 0 20px rgba(255,70,150,0.5);
+            z-index: 10;
+        }
+        .spin-btn {
+            margin-top: 10px;
+            padding: 12px 40px;
+            background: linear-gradient(135deg, #ff6b9d, #ff3b7f);
+            border: none;
+            border-radius: 30px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 20px rgba(255,70,150,0.4);
+        }
+        .spin-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 30px rgba(255,70,150,0.6);
+        }
+        .spin-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== 手机提示 ===== */
+        #playTip {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffb6c1;
+            font-size: 16px;
+            opacity: 0.8;
+            z-index: 1000;
+            text-align: center;
+            background: rgba(5,5,15,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,120,180,0.2);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+
+
+<!-- ===== 转盘弹窗 ===== -->
+<div class="modal-overlay" id="wheelModal">
+    <div class="modal-box">
+        <div class="message">🎡 520专属转盘</div>
+        <div class="wheel-container">
+            <div class="pointer">▼</div>
+            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+        </div>
+        <button class="spin-btn" id="spinBtn">🎯 点击抽奖</button>
+        <br><br>
+        <button class="btn" onclick="closeWheel()">关闭</button>
+    </div>
+</div>
+
+<!-- ===== 结果弹窗 ===== -->
+<div class="modal-overlay" id="resultModal">
+    <div class="modal-box" id="resultBox">
+        <!-- 内容由JS动态填充 -->
+    </div>
+</div>
+
+<script>
+    // ===========================
+    // 0. 音乐（手机兼容版）
+    // ===========================
+    // ★★★ 在这里修改音乐地址 ★★★
+    const audio = new Audio('https://m.kugou.com/share/song.html?chain=6MJI725G1V2');
+    audio.loop = true;
+    audio.volume = 0.4;
+
+    let hasPlayed = false;
+
+    // 用户点击页面时播放
+    document.addEventListener('click', function playMusic() {
+        if (!hasPlayed) {
+            audio.play().catch(() => {});
+            hasPlayed = true;
+            const tip = document.getElementById('playTip');
+            if (tip) tip.style.display = 'none';
+        }
+    });
+
+    // 点击转盘按钮时也触发播放
+    document.getElementById('spinBtn')?.addEventListener('click', function() {
+        if (!hasPlayed) {
+            audio.play().catch(() => {});
+            hasPlayed = true;
+        }
+    });
+
+    // ===========================
+    // 1. 画布背景（数字雨 + 爱心）
+    // ===========================
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const WIDTH = 1200;
+    const HEIGHT = 800;
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    const random = Math.random;
+
+    // 数字雨
+    const FONT_SIZE = 24;
+    const COLUMNS = Math.floor(WIDTH / (FONT_SIZE * 0.9));
+    class Drop {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.chars = [];
+            this.reset();
+        }
+        reset() {
+            this.chars = [];
+            const p = "UOY EVOL I ";
+            const len = Math.floor(random() * 12) + 18;
+            for (let i = 0; i < len; i++) {
+                this.chars.push(p[i % p.length]);
+            }
+        }
+        update() {
+            this.y += 2;
+            if (this.y > HEIGHT + 200) {
+                this.y = -Math.floor(random() * HEIGHT);
+                this.reset();
+            }
+        }
+    }
+    const drops = [];
+    for (let i = 0; i < COLUMNS * 2; i++) {
+        drops.push(new Drop(i * (FONT_SIZE * 0.9), -Math.floor(random() * HEIGHT)));
+    }
+
+    // 心形粒子
+    class Particle {
+        constructor(x, y) { this.x = x; this.y = y; }
+    }
+    function fx(t) { return 16 * Math.pow(Math.sin(t), 3); }
+    function fy(t) { return 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t); }
+    const particles = [];
+    const stray = [];
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2 - 30;
+    const samples = 12000;
+    function buildHeart() {
+        particles.length = 0;
+        stray.length = 0;
+        for (let i = 0; i < samples; i++) {
+            const t = random() * Math.PI * 2;
+            const r = Math.pow(random(), 0.7);
+            const px = cx + fx(t) * r * 14;
+            const py = cy - fy(t) * r * 14;
+            const density = 0.2 + 0.8 * Math.pow(r, 2.2);
+            if (random() < density) {
+                particles.push(new Particle(px, py));
+            }
+        }
+        for (let i = 0; i < 300; i++) {
+            stray.push(new Particle(
+                cx + random() * 280 - 140,
+                cy + random() * 280 - 140
+            ));
+        }
+    }
+    buildHeart();
+
+    let pulse = 1;
+    function draw() {
+        ctx.fillStyle = 'rgba(5, 5, 15, 0.3)';
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        ctx.font = `bold ${FONT_SIZE}px monospace`;
+        for (const d of drops) {
+            for (let i = 0; i < d.chars.length; i++) {
+                const a = 1 - i / d.chars.length;
+                ctx.fillStyle = `rgba(255, 80, 140, ${180 * a / 255})`;
+                ctx.fillText(d.chars[i], d.x, d.y - i * FONT_SIZE);
+            }
+            d.update();
+        }
+        const now = performance.now();
+        pulse = 1 + Math.sin(now / 600) * 0.05;
+        for (const p of particles) {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            const x = cx + dx * pulse + Math.sin(now * 0.002 + dx * 0.01) * 0.6;
+            const y = cy + dy * pulse + Math.cos(now * 0.002 + dy * 0.01) * 0.6;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const alpha = 0.4 + 0.6 * Math.tanh(dist / 260.0);
+            const size = (random() < 0.06) ? 3 : 2;
+            ctx.fillStyle = `rgba(255, 70, 150, ${200 * alpha / 255})`;
+            ctx.fillRect(x, y, size, size);
+        }
+        for (const p of stray) {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            let x = cx + dx * pulse;
+            let y = cy + dy * pulse;
+            x += Math.sin(now * 0.001 + dx) * 2;
+            y += Math.cos(now * 0.001 + dy) * 2;
+            ctx.fillStyle = 'rgba(255, 120, 180, 120)';
+            ctx.fillRect(x, y, 1, 1);
+        }
+        // 互动文字
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 34px "Microsoft YaHei", "PingFang SC", sans-serif';
+        ctx.shadowColor = 'rgba(255, 200, 255, 0.7)';
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = '#FFDDE2';
+        ctx.fillText('点击抽取520专属礼物', cx, cy);
+        ctx.restore();
+        requestAnimationFrame(draw);
+    }
+    draw();
+
+    // 自适应
+    function fitCanvas() {
+        const scaleX = window.innerWidth / WIDTH;
+        const scaleY = window.innerHeight / HEIGHT;
+        const scale = Math.min(scaleX, scaleY);
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = `scale(${scale})`;
+        canvas.style.position = 'absolute';
+        canvas.style.left = `${(window.innerWidth - WIDTH * scale) / 2}px`;
+        canvas.style.top = `${(window.innerHeight - HEIGHT * scale) / 2}px`;
+    }
+    window.addEventListener('resize', fitCanvas);
+    fitCanvas();
+
+    // ===========================
+    // 2. 打开转盘
+    // ===========================
+    function isClickInsideText(clickX, clickY) {
+        const scale = parseFloat(canvas.style.transform.replace('scale(', '')) || 1;
+        const rect = canvas.getBoundingClientRect();
+        const offsetX = (clickX - rect.left) / scale;
+        const offsetY = (clickY - rect.top) / scale;
+        const textX = cx;
+        const textY = cy;
+        const halfW = 34 * 12 * 0.6 / 2;
+        const halfH = 34 * 1.2 / 2;
+        return (offsetX >= textX - halfW && offsetX <= textX + halfW &&
+            offsetY >= textY - halfH && offsetY <= textY + halfH);
+    }
+    canvas.addEventListener('click', (e) => {
+        if (isClickInsideText(e.clientX, e.clientY)) {
+            document.getElementById('wheelModal').classList.add('active');
+            initWheel();
+        }
+    });
+
+    // ===========================
+    // 3. 转盘逻辑
+    // ===========================
+    const wheelCanvas = document.getElementById('wheelCanvas');
+    const wctx = wheelCanvas.getContext('2d');
+    const items = ['四只小奶狗', '感谢参与', '神秘大礼', '感谢参与'];
+    const colors = ['#ff6b9d', '#ffb6c1', '#ff3b7f', '#ff9eb5'];
+    let currentAngle = 0;
+    let isSpinning = false;
+
+    function initWheel() {
+        drawWheel(0);
+    }
+
+    function drawWheel(rotation) {
+        const w = wheelCanvas.width;
+        const h = wheelCanvas.height;
+        const centerX = w / 2;
+        const centerY = h / 2;
+        const radius = w / 2 - 10;
+        const sliceAngle = (2 * Math.PI) / items.length;
+
+        wctx.clearRect(0, 0, w, h);
+        wctx.save();
+        wctx.translate(centerX, centerY);
+        wctx.rotate(rotation);
+
+        for (let i = 0; i < items.length; i++) {
+            const start = i * sliceAngle;
+            const end = start + sliceAngle;
+            wctx.beginPath();
+            wctx.moveTo(0, 0);
+            wctx.arc(0, 0, radius, start, end);
+            wctx.closePath();
+            wctx.fillStyle = colors[i];
+            wctx.fill();
+            wctx.strokeStyle = '#fff';
+            wctx.lineWidth = 2;
+            wctx.stroke();
+
+            // 文字
+            wctx.save();
+            wctx.rotate(start + sliceAngle / 2);
+            wctx.textAlign = 'center';
+            wctx.textBaseline = 'middle';
+            wctx.fillStyle = '#fff';
+            wctx.font = 'bold 16px sans-serif';
+            wctx.shadowColor = 'rgba(0,0,0,0.5)';
+            wctx.shadowBlur = 4;
+            wctx.fillText(items[i], radius * 0.6, 0);
+            wctx.restore();
+        }
+        wctx.restore();
+
+        // 中心装饰
+        wctx.beginPath();
+        wctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+        wctx.fillStyle = '#ffb6c1';
+        wctx.fill();
+        wctx.shadowBlur = 0;
+    }
+
+    function spinWheel() {
+        if (isSpinning) return;
+        isSpinning = true;
+        document.getElementById('spinBtn').disabled = true;
+
+        // 随机转 5-8 圈 + 随机角度
+        const extraSpins = 5 + Math.floor(random() * 3);
+        const targetAngle = currentAngle + extraSpins * 2 * Math.PI + random() * 2 * Math.PI;
+        const duration = 4000;
+        const startAngle = currentAngle;
+        const startTime = performance.now();
+
+        function animateSpin(time) {
+            const elapsed = time - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const angle = startAngle + (targetAngle - startAngle) * eased;
+
+            drawWheel(angle);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateSpin);
+            } else {
+                currentAngle = targetAngle;
+                isSpinning = false;
+                document.getElementById('spinBtn').disabled = false;
+
+                // 计算结果
+                const normalized = ((targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                const sliceAngle = (2 * Math.PI) / items.length;
+                let pointerAngle = (-Math.PI / 2 - normalized) % (2 * Math.PI);
+                if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+                const index = Math.floor(pointerAngle / sliceAngle);
+                const result = items[index % items.length];
+                showResult(result);
+            }
+        }
+        requestAnimationFrame(animateSpin);
+    }
+
+    document.getElementById('spinBtn').addEventListener('click', spinWheel);
+
+    // ===========================
+    // 4. 结果处理
+    // ===========================
+    function showResult(result) {
+        const resultBox = document.getElementById('resultBox');
+        const wheelModal = document.getElementById('wheelModal');
+
+        if (result === '四只小奶狗') {
+            resultBox.innerHTML = `
+                <img src="https://y.zdmimg.com/202312/15/657bf48b775c67428.jpg_d250.jpg" alt="小奶狗" />
+                <div class="message">🐶 恭喜你！</div>
+                <div class="sub-message">zcl为您点了四只小奶狗 🐾</div>
+                <button class="btn" onclick="continueSpin()">开心 💕</button>
+            `;
+        } else if (result === '神秘大礼') {
+            resultBox.innerHTML = `
+                <div class="message">🎁 您抽到了神秘大奖！</div>
+                <div class="sub-message">请问是否领取？</div>
+                <button class="btn" onclick="claimPrize()" style="background:linear-gradient(135deg,#ff6b9d,#ff3b7f);color:#fff;border:none;padding:10px 40px;font-size:18px;">YES</button>
+            `;
+        } else {
+            // 感谢参与
+            resultBox.innerHTML = `
+                <div class="message">💝 感谢参与</div>
+                <div class="sub-message">下次一定中奖哦～</div>
+                <button class="btn" onclick="continueSpin()">好的</button>
+            `;
+        }
+
+        wheelModal.classList.remove('active');
+        document.getElementById('resultModal').classList.add('active');
+    }
+
+    function claimPrize() {
+        const resultBox = document.getElementById('resultBox');
+        resultBox.innerHTML = `
+            <img src="https://2.zk6.top//uploads2/20260511/a4206adf37f6cc1b406487b1ec4987ad.jpg" alt="奶龙" style="max-height:200px;" />
+            <div class="message">奶龙正在深情告白 ❤️</div>
+            <button class="btn" onclick="continueSpin()">收下告白 💕</button>
+        `;
+    }
+
+    function continueSpin() {
+        document.getElementById('resultModal').classList.remove('active');
+        document.getElementById('wheelModal').classList.add('active');
+        initWheel();
+    }
+
+    function closeWheel() {
+        document.getElementById('wheelModal').classList.remove('active');
+    }
+
+    // 点击背景关闭
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                el.classList.remove('active');
+            }
+        });
+    });
+
+    console.log('❤️ 520专属转盘已加载！');
+</script>
+
+</body>
+</html>
